@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la \"D:/stm32halproject/basic_framework/\" 2>/dev/null)",
+      "Read(//d/stm32halproject/basic_framework/**)",
+      "Bash(find \"D:/xz/moepal/中景园电子ZJY096I0400WG01技术资料/02-0.96OLED程序源码/02-0.96OLED程序源码/STM32例程/04-0.96OLED显示屏STM32F407ZG_IIC例程\" -type f \\\\\\( -name \"*.c\" -o -name \"*.h\" \\\\\\) 2>/dev/null | head -50)",
+      "Read(//d/xz/moepal/中景园电子ZJY096I0400WG01技术资料/02-0.96OLED程序源码/02-0.96OLED程序源码/STM32例程/04-0.96OLED显示屏STM32F407ZG_IIC例程/**)",
+      "Bash(find D:/xz/moepal/中景园电子ZJY096I0400WG01技术资料/02-0.96OLED程序源码/02-0.96OLED程序源码/STM32例程/04-0.96OLED显示屏STM32F407ZG_IIC例程 -type f '\\(' -iname *oled* -o -iname *delay* -o -iname *i2c* -o -iname *sys* '\\)')",
+      "Bash(BASE=\"D:/xz/moepal/ZDT_XS系列第二代闭环步进电机资料/9. 例程_STM32F407/HAL库/Emm固件模式/CAN通讯/STM32F407_CAN通讯__多机同步控制/STM32F407_CAN通讯__多机同步控制\"; echo \"===目录结构===\" && find \"$BASE\" -type d 2>/dev/null | head -30; echo \"\"; echo \"===所有.c/.h===\" && find \"$BASE\" -type f \\\\\\( -name \"*.c\" -o -name \"*.h\" \\\\\\) 2>/dev/null | grep -iE \"can|motor|emm|zdt\" | head -40)",
+      "Read(//d/xz/moepal/ZDT_XS系列第二代闭环步进电机资料/9. 例程_STM32F407/HAL库/Emm固件模式/CAN通讯/STM32F407_CAN通讯__多机同步控制/STM32F407_CAN通讯__多机同步控制/**)",
+      "Bash(find 'D:/xz/moepal/ZDT_XS系列第二代闭环步进电机资料/9. 例程_STM32F407/HAL库/Emm固件模式/CAN通讯/STM32F407_CAN通讯__多机同步控制/STM32F407_CAN通讯__多机同步控制' -type f '\\(' -name *.c -o -name *.h '\\)')",
+      "Bash(opencode --version)",
+      "Bash(where opencode *)",
+      "Bash(npm ls *)",
+      "Bash(npm config *)"
+    ]
+  }
+}
