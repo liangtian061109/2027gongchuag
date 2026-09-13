@@ -1,27 +1,26 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2026 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2026 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "can.h"
 #include "dma.h"
 #include "i2c.h"
-#include "stm32f4xx_hal.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -34,6 +33,7 @@
 #include "bsp_uart.h"
 #include "oled.h"
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 
 /* USER CODE END Includes */
@@ -56,10 +56,12 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-UART_Instance *uart2;        // 串口实例
-OLED_Instance *oled;          // OLED 屏幕实例
-CAN_Instance *can_inst;       // CAN 实例(Emm_V5 模块要用)
+UART_Instance *uart1;   // 串口实例
+OLED_Instance *oled;    // OLED 屏幕实例
+CAN_Instance *can_inst; // CAN 实例(Emm_V5 模块要用)
 Chassis_Motor_Speed_s Chassis_Motor_Speed = {0};
+volatile int32_t pos[5] = {0};  // 调试用:四电机位置快照
+volatile uint8_t rx_status = 0; // 调试用:接收状态位图(期望 0x1E=30)
 
 /* USER CODE END PV */
 
@@ -72,42 +74,48 @@ void SystemClock_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-
 /* OLED 屏幕的注册 */
-void UART_RxHandler(UART_Instance *uart, uint16_t size)
-{    
+void UART_RxHandler(UART_Instance *uart, uint16_t size) {
   UART_Transmit(uart, uart->rx_buffer, size); // 把收到的发回去
 }
 
-void OLED_Setup(void)
-{
-  HAL_Delay(200);  // 等 SSD1306 完成内部上电复位(无 RES 脚,靠延时保上电时序)
+/* 把四电机位置快照格式化成一行文本,从串口发出 */
+static void Print_Positions(void) {
+  char line[96];
+  int n = snprintf(line, sizeof(line), "P1=%ld P2=%ld P3=%ld P4=%ld ST=0x%02X\r\n",
+                   (long)pos[1], (long)pos[2], (long)pos[3], (long)pos[4],
+                   (unsigned)rx_status);
+  if (n > 0) {
+    UART_Transmit(uart1, (uint8_t *)line, (uint16_t)n);
+  }
+}
+
+void OLED_Setup(void) {
+  HAL_Delay(200); // 等 SSD1306 完成内部上电复位(无 RES 脚,靠延时保上电时序)
   IIC_Init_Config_s iic_conf = {
-      .handle = &hi2c1,        // 用 I2C1
-      .dev_addr = 0x3C,        // OLED 7位地址,bsp内部左移成0x78
+      .handle = &hi2c1, // 用 I2C1
+      .dev_addr = 0x3C, // OLED 7位地址,bsp内部左移成0x78
       .callback = NULL,
       .id = NULL,
   };
   OLED_Init_Config_s oled_conf = {.iic_conf = iic_conf};
-  oled = OLED_Register(&oled_conf);   // 注册(内部会注册 IIC 实例)
-  OLED_Init(oled);                     // 初始化屏幕
-  OLED_Clear(oled);                    // 清屏
-  OLED_Refresh(oled);                 // 刷到屏幕
+  oled = OLED_Register(&oled_conf); // 注册(内部会注册 IIC 实例)
+  OLED_Init(oled);                  // 初始化屏幕
+  OLED_Clear(oled);                 // 清屏
+  OLED_Refresh(oled);               // 刷到屏幕
 }
 /* 串口的注册 */
-void UART_Setup(void)
-{
+void UART_Setup(void) {
   UART_Init_Config_s uart_conf = {
-      .handle = &huart2,             // 用 USART2
+      .handle = &huart1,             // 用 USART1
       .rx_callback = UART_RxHandler, // 接收回调函数
       .id = NULL,
   };
-  uart2 = UART_Register(&uart_conf); // 注册(内部会注册 DMA 实例)
-  UART_Receive(uart2);               // 启动接收
+  uart1 = UART_Register(&uart_conf); // 注册(内部会注册 DMA 实例)
+  UART_Receive(uart1);               // 启动接收
 }
 /*CAN的注册*/
-void CAN_Setup(void)
-{
+void CAN_Setup(void) {
   CAN_Init_Config_s can_conf = {
       .handle = &hcan1,
       .filter.FilterBank = 0,
@@ -124,15 +132,14 @@ void CAN_Setup(void)
       .rx_callback = Emm_V5_RxCallback,
       .id = NULL,
   };
-  CAN_Instance *can_instance = CAN_Register(&can_conf); // 注册(内部会注册 CAN 实例)
-  CAN_Start(can_instance);                // 启动 CAN 接收中断
-  can_inst = can_instance;                // 存到全局,Emm_V5 模块要用
+  CAN_Instance *can_instance =
+      CAN_Register(&can_conf); // 注册(内部会注册 CAN 实例)
+  CAN_Start(can_instance);     // 启动 CAN 接收中断
+  can_inst = can_instance;     // 存到全局,Emm_V5 模块要用
 }
 
-void Motor_Get_Encoder(void)
-{
-  for(uint8_t i = 1; i <= 4; i++)
-  {
+void Motor_Get_Encoder(void) {
+  for (uint8_t i = 1; i <= 4; i++) {
     Emm_V5_Read_Sys_Params(i, S_CPOS);
     HAL_Delay(100);
   }
@@ -146,56 +153,61 @@ void Motor_Get_Encoder(void)
 int main(void)
 {
 
-/* USER CODE BEGIN 1 */
+  /* USER CODE BEGIN 1 */
 
-/* USER CODE END 1 */
+  /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-   HAL_Init();
+  HAL_Init();
 
-/* USER CODE BEGIN Init */
+  /* USER CODE BEGIN Init */
 
-/* USER CODE END Init */
+  /* USER CODE END Init */
 
-   /* Configure the system clock */
-   SystemClock_Config();
+  /* Configure the system clock */
+  SystemClock_Config();
 
-/* USER CODE BEGIN SysInit */
+  /* USER CODE BEGIN SysInit */
 
-/* USER CODE END SysInit */
+  /* USER CODE END SysInit */
 
-   /* Initialize all configured peripherals */
-   MX_GPIO_Init();
-   MX_DMA_Init();
-   MX_USART2_UART_Init();
-   MX_I2C1_Init();
-   MX_CAN1_Init();
-/* USER CODE BEGIN 2 */
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_DMA_Init();
+  MX_I2C1_Init();
+  MX_CAN1_Init();
+  MX_USART1_UART_Init();
+  /* USER CODE BEGIN 2 */
   // OLED_Setup(); // OLED 注册
-   // UART_Setup(); // UART 注册
-   CAN_Setup();           // CAN 注册
-   Emm_V5_Init(can_inst); // 把 CAN 实例交给电机模块
+  UART_Setup();          // UART 注册(标定期用串口输出位置)
+  CAN_Setup();           // CAN 注册
+  Emm_V5_Init(can_inst); // 把 CAN 实例交给电机模块
 
-   /* 四电机底盘向右横移测试：100 mm/s，运行 1 秒后停止。 */
-   HAL_Delay(500);
+  /* 标定模式:显式发送失能命令,解除锁轴,方便用手转轮子 */
+  Emm_V5_En_Control(0, false, false);
 
-   /* 地址 0 是广播地址：使能全部四个电机。 */
-   Emm_V5_En_Control(0, true, false);
-   HAL_Delay(10);
+  HAL_Delay(10);
 
-/* USER CODE END 2 */
+  /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
+  while (1) {
     /* USER CODE END WHILE */
-    Motor_Get_Encoder();
+    Emm_V5_En_Control(0, false, false);
+    Motor_Get_Encoder();                 // ① 请求四电机位置并等回传(内部已含缓冲延时)
+    for (uint8_t i = 1; i <= 4; i++) {   // ② 把模块内部的实时位置搬进快照
+      pos[i] = Emm_V5_Get_Position(i);
+    }
+    rx_status = Emm_V5_Get_Status();
+    Print_Positions();                   // ③ 打印最新快照
+    HAL_Delay(1000);                     // ④ 控制打印节奏
     /* USER CODE BEGIN 3 */
   }
-  /* USER CODE END 3 */}
+  /* USER CODE END 3 */
+}
 
 /**
   * @brief System Clock Configuration
@@ -256,8 +268,7 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
-  while (1)
-  {
+  while (1) {
   }
   /* USER CODE END Error_Handler_Debug */
 }
@@ -272,8 +283,9 @@ void Error_Handler(void)
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
-  /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* User can add his own implementation to report the file name and line
+     number, ex: printf("Wrong parameters value: file %s on line %d\r\n", file,
+     line) */
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */

@@ -17,6 +17,10 @@
 
 // 把 CAN 实例交给 Emm_V5 模块(main 里 CAN_Setup 之后调用一次)
 void Emm_V5_Init(CAN_Instance *can);
+// 读取电机实时位置(解析自 0x36 回传帧)，addr 越界返回 0
+int32_t Emm_V5_Get_Position(uint8_t addr);
+// 读取接收状态位图，bit1~bit4 对应电机 1~4 已应答
+uint8_t Emm_V5_Get_Status(void);
 
 typedef enum {
   S_VBUS = 5,   // 读取总线电压

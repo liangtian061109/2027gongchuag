@@ -22,7 +22,10 @@
         "flash_daplink"
       ],
       "problemMatcher": [],
-      "group": "build"
+      "group": "build",
+      "dependsOn": [
+        "CMake: 编译"
+      ]
     }
   ]
 }

@@ -15,8 +15,8 @@ __IO uint16_t MMCL_count = 0, MMCL_cmd[MMCL_LEN] = {0};
 
 /* 模块持有的 CAN 实例:Emm_V5_Init 时由 main 交进来 */
 static CAN_Instance *emm_can = NULL;
-static volatile int32_t Emm_Motor_Position  [5] = {0};
-static volatile uint8_t  Emm_Motor_Receive_Status =0;
+static volatile int32_t Emm_Motor_Position[5] = {0};
+static volatile uint8_t Emm_Motor_Receive_Status=0;
 
 
 
@@ -27,6 +27,28 @@ static volatile uint8_t  Emm_Motor_Receive_Status =0;
 void Emm_V5_Init(CAN_Instance *can)
 {
   emm_can = can;
+}
+
+/**
+  * @brief    读取电机实时位置(解析自 0x36 回传帧)
+  * @param    addr  ：电机地址 1~4，越界返回 0
+  * @retval   带符号位置值
+  */
+int32_t Emm_V5_Get_Position(uint8_t addr)
+{
+  if(addr < 1 || addr > 4)
+  {
+    return 0;
+  }
+  return Emm_Motor_Position[addr];
+}
+
+/**
+  * @brief    读取接收状态位图 bit1~bit4 对应电机 1~4 已应答
+  */
+uint8_t Emm_V5_Get_Status(void)
+{
+  return Emm_Motor_Receive_Status;
 }
 
 void Emm_V5_RxCallback(CAN_Instance *can)
