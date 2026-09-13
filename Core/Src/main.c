@@ -121,7 +121,7 @@ void CAN_Setup(void)
       .filter.FilterActivation = ENABLE,
       /* 0~13号滤波器归CAN1，14~27号滤波器归CAN2。 */
       .filter.SlaveStartFilterBank = 14,
-      .rx_callback = NULL,
+      .rx_callback = Emm_V5_RxCallback,
       .id = NULL,
   };
   CAN_Instance *can_instance = CAN_Register(&can_conf); // 注册(内部会注册 CAN 实例)

@@ -39,7 +39,7 @@ void Emm_V5_RxCallback(CAN_Instance *can)
     return;
   }
 
-  addr = (uint8_t)(can_rx_header.ExtId >> 8);
+  addr = (uint8_t)(can->rx_header.ExtId >> 8);
   if(addr < 1 || addr > 4)
   {
     return;
@@ -53,15 +53,19 @@ void Emm_V5_RxCallback(CAN_Instance *can)
   raw_position = ((uint32_t)can->rx_data[2] << 24) |
                  ((uint32_t)can->rx_data[3] << 16) |
                  ((uint32_t)can->rx_data[4] << 8) | ((uint32_t)can->rx_data[5]);
-  if(can->rx_data[1] == 0) {Emm_Motor_Position[addr] = (int32_t)raw_position;
-  } else if(can->rx_data[1] == 1) {Emm_Motor_Position[addr] = -(int32_t)raw_position;
-    {
-      Emm_Motor_Position[addr] = -(int32_t)raw_position;
-    }
-    else {
-      return;
-    }
-    Emm_Motor_Receive_Status |= (1U << addr);
+  if (can->rx_data[1] == 0)
+  {
+    Emm_Motor_Position[addr] = (int32_t)raw_position;
+  }
+  else if (can->rx_data[1] == 1)
+  {
+    Emm_Motor_Position[addr] = -(int32_t)raw_position;
+  }
+  else
+  {
+    return;
+  }
+  Emm_Motor_Receive_Status |= (1U << addr);
 }
 
 void CAN_SendCmd(CAN_Instance *can , __IO uint8_t *cmd, uint16_t len)

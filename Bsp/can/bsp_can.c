@@ -57,8 +57,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
     {
         if (CAN_Instances[i].handle == hcan)
         {
-          if(HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &CAN_Instances[i].rx_header,
-                               CAN_Instances[i].rx_data)== HAL_OK)
+          if(HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &CAN_Instances[i].rx_header,CAN_Instances[i].rx_data)== HAL_OK)
           {
             if (CAN_Instances[i].rx_callback != NULL) {
               CAN_Instances[i].rx_callback(&CAN_Instances[i]);
