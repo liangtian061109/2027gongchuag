@@ -127,8 +127,16 @@ void CAN_Setup(void)
   CAN_Instance *can_instance = CAN_Register(&can_conf); // 注册(内部会注册 CAN 实例)
   CAN_Start(can_instance);                // 启动 CAN 接收中断
   can_inst = can_instance;                // 存到全局,Emm_V5 模块要用
- }
+}
 
+void Motor_Get_Encoder(void)
+{
+  for(uint8_t i = 1; i <= 4; i++)
+  {
+    Emm_V5_Read_Sys_Params(i, S_CPOS);
+    HAL_Delay(100);
+  }
+}
 /* USER CODE END 0 */
 
 /**
@@ -138,61 +146,56 @@ void CAN_Setup(void)
 int main(void)
 {
 
-  /* USER CODE BEGIN 1 */
+/* USER CODE BEGIN 1 */
 
-  /* USER CODE END 1 */
+/* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+   HAL_Init();
 
-  /* USER CODE BEGIN Init */
+/* USER CODE BEGIN Init */
 
-  /* USER CODE END Init */
+/* USER CODE END Init */
 
-  /* Configure the system clock */
-  SystemClock_Config();
+   /* Configure the system clock */
+   SystemClock_Config();
 
-  /* USER CODE BEGIN SysInit */
+/* USER CODE BEGIN SysInit */
 
-  /* USER CODE END SysInit */
+/* USER CODE END SysInit */
 
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_DMA_Init();
-  MX_USART2_UART_Init();
-  MX_I2C1_Init();
-  MX_CAN1_Init();
-  /* USER CODE BEGIN 2 */
+   /* Initialize all configured peripherals */
+   MX_GPIO_Init();
+   MX_DMA_Init();
+   MX_USART2_UART_Init();
+   MX_I2C1_Init();
+   MX_CAN1_Init();
+/* USER CODE BEGIN 2 */
   // OLED_Setup(); // OLED 注册
-  // UART_Setup(); // UART 注册
-  CAN_Setup(); // CAN 注册
-  Emm_V5_Init(can_inst); // 把 CAN 实例交给电机模块
+   // UART_Setup(); // UART 注册
+   CAN_Setup();           // CAN 注册
+   Emm_V5_Init(can_inst); // 把 CAN 实例交给电机模块
 
-  /* 四电机底盘向右横移测试：100 mm/s，运行 1 秒后停止。 */
-  HAL_Delay(500);
+   /* 四电机底盘向右横移测试：100 mm/s，运行 1 秒后停止。 */
+   HAL_Delay(500);
 
-  /* 地址 0 是广播地址：使能全部四个电机。 */
-  Emm_V5_En_Control(0, true, false);
-  HAL_Delay(10);
+   /* 地址 0 是广播地址：使能全部四个电机。 */
+   Emm_V5_En_Control(0, true, false);
+   HAL_Delay(10);
 
-  Chassis_Kinematics(-70.7f, -70.7f, 0.0f, &Chassis_Motor_Speed);
-  Chassis_Send_Motor_Speeds(&Chassis_Motor_Speed, 20);
-  HAL_Delay(1000);
-
-  Emm_V5_Stop_Now(0, false);
-  /* USER CODE END 2 */
+/* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
     /* USER CODE END WHILE */
+    Motor_Get_Encoder();
     /* USER CODE BEGIN 3 */
   }
-  /* USER CODE END 3 */
-}
+  /* USER CODE END 3 */}
 
 /**
   * @brief System Clock Configuration
