@@ -12,7 +12,9 @@
       "Bash(opencode --version)",
       "Bash(where opencode *)",
       "Bash(npm ls *)",
-      "Bash(npm config *)"
+      "Bash(npm config *)",
+      "Bash(ls \"C:/Users/30710/.claude/projects/d--stm32halproject-stm32f407vgt6-uart/memory/\")",
+      "Read(//c/Users/30710/.claude/projects/d--stm32halproject-stm32f407vgt6-uart/memory/**)"
     ]
   }
 }

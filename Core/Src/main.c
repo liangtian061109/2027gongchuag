@@ -21,6 +21,7 @@
 #include "can.h"
 #include "dma.h"
 #include "i2c.h"
+#include "stm32f4xx_hal.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -59,9 +60,8 @@
 UART_Instance *uart1;   // 串口实例
 OLED_Instance *oled;    // OLED 屏幕实例
 CAN_Instance *can_inst; // CAN 实例(Emm_V5 模块要用)
-Chassis_Motor_Speed_s Chassis_Motor_Speed = {0};
-volatile int32_t pos[5] = {0};  // 调试用:四电机位置快照
-volatile uint8_t rx_status = 0; // 调试用:接收状态位图(期望 0x1E=30)
+static uint8_t chassis_test_state = 0;
+static uint32_t chassis_test_start_tick = 0;
 
 /* USER CODE END PV */
 
@@ -77,17 +77,6 @@ void SystemClock_Config(void);
 /* OLED 屏幕的注册 */
 void UART_RxHandler(UART_Instance *uart, uint16_t size) {
   UART_Transmit(uart, uart->rx_buffer, size); // 把收到的发回去
-}
-
-/* 把四电机位置快照格式化成一行文本,从串口发出 */
-static void Print_Positions(void) {
-  char line[96];
-  int n = snprintf(line, sizeof(line), "P1=%ld P2=%ld P3=%ld P4=%ld ST=0x%02X\r\n",
-                   (long)pos[1], (long)pos[2], (long)pos[3], (long)pos[4],
-                   (unsigned)rx_status);
-  if (n > 0) {
-    UART_Transmit(uart1, (uint8_t *)line, (uint16_t)n);
-  }
 }
 
 void OLED_Setup(void) {
@@ -138,12 +127,23 @@ void CAN_Setup(void) {
   can_inst = can_instance;     // 存到全局,Emm_V5 模块要用
 }
 
-void Motor_Get_Encoder(void) {
-  for (uint8_t i = 1; i <= 4; i++) {
-    Emm_V5_Read_Sys_Params(i, S_CPOS);
-    HAL_Delay(100);
+/* 悬空低速测试：前进约 1 秒后停止，只发送每条命令一次。 */
+static void Chassis_Test_Update(void)
+{
+  if (chassis_test_state == 0)
+  {
+    Chassis_Set_Velocity(100.0f, 0.0f, 0.0f, 10, true);
+    chassis_test_start_tick = HAL_GetTick();
+    chassis_test_state = 1;
+  }
+  else if (chassis_test_state == 1 &&
+           (HAL_GetTick() - chassis_test_start_tick) >= 100)
+  {
+    Chassis_Set_Velocity(0.0f, 0.0f, 0.0f, 10, true);
+    chassis_test_state = 2;
   }
 }
+
 /* USER CODE END 0 */
 
 /**
@@ -183,12 +183,11 @@ int main(void)
   // OLED_Setup(); // OLED 注册
   UART_Setup();          // UART 注册(标定期用串口输出位置)
   CAN_Setup();           // CAN 注册
+
+  HAL_Delay(1000);
   Emm_V5_Init(can_inst); // 把 CAN 实例交给电机模块
 
-  /* 标定模式:显式发送失能命令,解除锁轴,方便用手转轮子 */
-  Emm_V5_En_Control(0, false, false);
-
-  HAL_Delay(10);
+  Chassis_Init();
 
   /* USER CODE END 2 */
 
@@ -196,14 +195,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1) {
     /* USER CODE END WHILE */
-    Emm_V5_En_Control(0, false, false);
-    Motor_Get_Encoder();                 // ① 请求四电机位置并等回传(内部已含缓冲延时)
-    for (uint8_t i = 1; i <= 4; i++) {   // ② 把模块内部的实时位置搬进快照
-      pos[i] = Emm_V5_Get_Position(i);
-    }
-    rx_status = Emm_V5_Get_Status();
-    Print_Positions();                   // ③ 打印最新快照
-    HAL_Delay(1000);                     // ④ 控制打印节奏
+    Chassis_Update();
+    Chassis_Test_Update();
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */

@@ -16,7 +16,7 @@ __IO uint16_t MMCL_count = 0, MMCL_cmd[MMCL_LEN] = {0};
 /* 模块持有的 CAN 实例:Emm_V5_Init 时由 main 交进来 */
 static CAN_Instance *emm_can = NULL;
 static volatile int32_t Emm_Motor_Position[5] = {0};
-static volatile uint8_t Emm_Motor_Receive_Status=0;
+static volatile uint8_t Emm_Motor_Position_Status = 0;
 
 
 
@@ -30,64 +30,84 @@ void Emm_V5_Init(CAN_Instance *can)
 }
 
 /**
-  * @brief    读取电机实时位置(解析自 0x36 回传帧)
-  * @param    addr  ：电机地址 1~4，越界返回 0
-  * @retval   带符号位置值
+  * @brief    读取最近一次 S_CPOS 返回的电机多圈实时位置
+  * @param    addr  电机地址 1~4
+  * @retval   带符号实时位置，地址无效时返回 0
   */
 int32_t Emm_V5_Get_Position(uint8_t addr)
 {
-  if(addr < 1 || addr > 4)
+  if (addr < 1 || addr > 4)
   {
     return 0;
   }
+
   return Emm_Motor_Position[addr];
 }
 
-/**
-  * @brief    读取接收状态位图 bit1~bit4 对应电机 1~4 已应答
-  */
-uint8_t Emm_V5_Get_Status(void)
+bool Emm_V5_Position_Updated(uint8_t addr)
 {
-  return Emm_Motor_Receive_Status;
+  if (addr < 1 || addr > 4)
+  {
+    return false;
+  }
+
+  return (Emm_Motor_Position_Status & (1 << addr)) != 0;
+}
+
+void Emm_V5_Clear_Position_Status(uint8_t addr)
+{
+  if (addr >= 1 && addr <= 4)
+  {
+    Emm_Motor_Position_Status &= (uint8_t)~(1 << addr);
+  }
 }
 
 void Emm_V5_RxCallback(CAN_Instance *can)
 {
   uint8_t addr;
-  uint32_t raw_position;
 
-  if(can == NULL)
+  if (can == NULL)
   {
     return;
   }
 
   addr = (uint8_t)(can->rx_header.ExtId >> 8);
-  if(addr < 1 || addr > 4)
+  if (addr < 1 || addr > 4)
   {
     return;
   }
 
-  /* 实时位置返回帧：功能码 0x36，共至少 7 个字节。 */
-  if ((can->rx_header.DLC < 7U) || (can->rx_data[0] != 0x36U) ||
-      (can->rx_data[6] != 0x6BU)) {
-    return;
-  }
-  raw_position = ((uint32_t)can->rx_data[2] << 24) |
-                 ((uint32_t)can->rx_data[3] << 16) |
-                 ((uint32_t)can->rx_data[4] << 8) | ((uint32_t)can->rx_data[5]);
-  if (can->rx_data[1] == 0)
-  {
-    Emm_Motor_Position[addr] = (int32_t)raw_position;
-  }
-  else if (can->rx_data[1] == 1)
-  {
-    Emm_Motor_Position[addr] = -(int32_t)raw_position;
-  }
-  else
+  /* S_CPOS response: 0x36 + sign + uint32 position + 0x6B. */
+  if ((can->rx_header.DLC < 7) ||
+      (can->rx_data[0] != 0x36) ||
+      (can->rx_data[6] != 0x6B))
   {
     return;
   }
-  Emm_Motor_Receive_Status |= (1U << addr);
+
+  {
+    uint32_t raw_position;
+
+    raw_position = ((uint32_t)can->rx_data[2] << 24) |
+                   ((uint32_t)can->rx_data[3] << 16) |
+                   ((uint32_t)can->rx_data[4] << 8) |
+                   (uint32_t)can->rx_data[5];
+
+    if (can->rx_data[1] == 0)
+    {
+      Emm_Motor_Position[addr] = (int32_t)raw_position;
+    }
+    else if (can->rx_data[1] == 1)
+    {
+      Emm_Motor_Position[addr] = -(int32_t)raw_position;
+    }
+    else
+    {
+      return;
+    }
+
+    Emm_Motor_Position_Status |= (uint8_t)(1 << addr);
+  }
 }
 
 void CAN_SendCmd(CAN_Instance *can , __IO uint8_t *cmd, uint16_t len)
