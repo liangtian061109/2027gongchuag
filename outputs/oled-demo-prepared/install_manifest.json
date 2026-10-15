@@ -1,0 +1,82 @@
+[
+  {
+    "path": "Core/Src/main.c",
+    "original_sha256": "7181e1116321ad0c8a04e5f1fbb0ca326ae3e6387adbba244e9b8f7fed1f8ac0",
+    "prepared_sha256": "66932e876b73349c3eedca4a925af5b8ac661b017c23a53825621caf27c9a93c"
+  },
+  {
+    "path": "CMakeLists.txt",
+    "original_sha256": "2a0270dff667e8aa2f1b250da128270780742d346ddc39f45ee25e8a2506c597",
+    "prepared_sha256": "927de1b761357c209df80c81a697ac744293d29b42cd957787563e986f565680"
+  },
+  {
+    "path": ".gitignore",
+    "original_sha256": null,
+    "prepared_sha256": "d18ed37b81b41036d9287159e53f8f7da8479518046facbc8ac3a13c8f9f5413"
+  },
+  {
+    "path": "README.md",
+    "original_sha256": null,
+    "prepared_sha256": "4718fbe513087e9d933ca83c7aaff88f583ed49f0219962b2dbc314add681e90"
+  },
+  {
+    "path": "APP/app_init.c",
+    "original_sha256": null,
+    "prepared_sha256": "bf512abf4978bd4d0210867b8652422fbe202f953574f4fe05a211e3ab94bdbd"
+  },
+  {
+    "path": "APP/app_init.h",
+    "original_sha256": null,
+    "prepared_sha256": "d04ab22f3e7296db3165c3d08bb20e31d576caf02bfd08ea263508c16ebf5081"
+  },
+  {
+    "path": "APP/app_oled.c",
+    "original_sha256": null,
+    "prepared_sha256": "38b94657b8a4d766187927b6bb85ac48f6784bd01d8001e4b333c13637c74715"
+  },
+  {
+    "path": "APP/app_oled.h",
+    "original_sha256": null,
+    "prepared_sha256": "81ae5d656c50c26b37ccd125e7ff210d94121d83f524a4a37abf65b1db089055"
+  },
+  {
+    "path": "Bsp/iic/bsp_iic.c",
+    "original_sha256": null,
+    "prepared_sha256": "0199d552d0574af672ad55fa68c389c0a34b4f86b5a1e0b040f337cddc95afed"
+  },
+  {
+    "path": "Bsp/iic/bsp_iic.h",
+    "original_sha256": null,
+    "prepared_sha256": "c37c1c70004cb7b709ef1c283c889f1c81f1f833f597eb85cb9fdb2774d3ab40"
+  },
+  {
+    "path": "Modules/OLED/oled.c",
+    "original_sha256": null,
+    "prepared_sha256": "0df600b07b173b95cc343213b3a139e678bd25240e362292fdc7593cb6cf4e39"
+  },
+  {
+    "path": "Modules/OLED/oled.h",
+    "original_sha256": null,
+    "prepared_sha256": "3db39b7d348181b64dc277ba8220d1a4a6c9c2c9cc806acfd020e841b5512388"
+  },
+  {
+    "path": "Modules/OLED/oled_font.h",
+    "original_sha256": null,
+    "prepared_sha256": "d3eacef472c59b4b7f8e529f663baf29d173b9efe0e888ecf2b5e90eee15e335"
+  },
+  {
+    "path": "Bsp/iic/README.md",
+    "original_sha256": null,
+    "prepared_sha256": "5b9c303799f1295204c1b37d06996d84e4ad1ecdb228963e48965d82cd57486a"
+  },
+  {
+    "path": "Modules/OLED/README.md",
+    "original_sha256": null,
+    "prepared_sha256": "283f3c500da0cb025f38b8ff8fd7c92542718e958b72395c3a7514135fdc70ab"
+  },
+  {
+    "path": "docs/rm_framework_secondary_development.md",
+    "original_sha256": null,
+    "prepared_sha256": "523077ad1f720f949f39d958152997522051af811ef9591f44409cc0551491c1"
+  }
+]

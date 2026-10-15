@@ -250,6 +250,8 @@ void Chassis_Set_Velocity(float forward_mm_s, float lateral_mm_s,
     uint8_t dir;
     uint16_t rpm;
 
+    (void)synchronous;
+
     Chassis_Compute_Wheel_Velocities(forward_mm_s, lateral_mm_s, rotation_rad_s,
                                      &wheel_velocity);
 
@@ -272,30 +274,29 @@ void Chassis_Set_Velocity(float forward_mm_s, float lateral_mm_s,
       wheel_velocity.right_rear_mm_s *= scale;
     }
 
+    /* Load all four velocity commands into the Y42 multi-motor buffer. */
+    MMCL_count = 0U;
+
     dir = (wheel_velocity.left_front_mm_s < 0.0f) ? 1 : 0;
     rpm = Chassis_Wheel_Velocity_To_Rpm(wheel_velocity.left_front_mm_s);
-    Emm_V5_Vel_Control(Chassis_Motor_Left_Front, dir, rpm, acc, synchronous);
-    HAL_Delay(10);
+    Emm_V5_MMCL_Vel_Control(Chassis_Motor_Left_Front,
+                            dir, rpm, acc, false);
 
     dir = (wheel_velocity.right_front_mm_s < 0.0f) ? 1 : 0;
     rpm = Chassis_Wheel_Velocity_To_Rpm(wheel_velocity.right_front_mm_s);
-    Emm_V5_Vel_Control(Chassis_Motor_Right_Front, dir, rpm, acc, synchronous);
-    HAL_Delay(10);
+    Emm_V5_MMCL_Vel_Control(Chassis_Motor_Right_Front,
+                            dir, rpm, acc, false);
 
     dir = (wheel_velocity.left_rear_mm_s < 0.0f) ? 1 : 0;
     rpm = Chassis_Wheel_Velocity_To_Rpm(wheel_velocity.left_rear_mm_s);
-    Emm_V5_Vel_Control(Chassis_Motor_Left_Rear, dir, rpm, acc, synchronous);
-    HAL_Delay(10);
+    Emm_V5_MMCL_Vel_Control(Chassis_Motor_Left_Rear,
+                            dir, rpm, acc, false);
 
     dir = (wheel_velocity.right_rear_mm_s < 0.0f) ? 1 : 0;
     rpm = Chassis_Wheel_Velocity_To_Rpm(wheel_velocity.right_rear_mm_s);
-    Emm_V5_Vel_Control(Chassis_Motor_Right_Rear, dir, rpm, acc, synchronous);
-    HAL_Delay(10);
+    Emm_V5_MMCL_Vel_Control(Chassis_Motor_Right_Rear,
+                            dir, rpm, acc, false);
 
-    if (synchronous) {
-      
-      Emm_V5_Synchronous_motion(0);
-    }
+    /* Broadcast the complete multi-motor command once. b*/
+    Emm_V5_Multi_Motor_Cmd(0);
   }
-
-  float Chassis_Go_Distance(float Target_Distance,float Current_Distance,)

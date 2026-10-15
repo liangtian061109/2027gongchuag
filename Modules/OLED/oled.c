@@ -18,13 +18,19 @@ static uint8_t OLED_Instance_count = 0;
 
 OLED_Instance *OLED_Register(OLED_Init_Config_s *conf)
 {
-  if(OLED_Instance_count >= Max_OLED_Instance)
+  if(conf == NULL || OLED_Instance_count >= Max_OLED_Instance)
+  {
+    return NULL;
+  }
+  // IIC 注册失败(配置无效/地址重复/实例池已满)时不占用 OLED 槽位
+  IIC_Instance *iic = IIC_Register(&conf->iic_conf);
+  if(iic == NULL)
   {
     return NULL;
   }
   OLED_Instance *OLED = &OLED_Instances[OLED_Instance_count];
   memset(OLED, 0, sizeof(OLED_Instance));
-  OLED->iic = IIC_Register(&conf->iic_conf);
+  OLED->iic = iic;
   OLED_Instance_count++;
   return OLED;
 }

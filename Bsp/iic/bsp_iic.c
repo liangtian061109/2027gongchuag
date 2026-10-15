@@ -1,41 +1,70 @@
 #include "bsp_iic.h"
-#include <stdint.h>
-#include <string.h>
+#include <stddef.h>
 
-/*静态数组存储iic实例*/
-#define Max_IIC_Instance 1
-static IIC_Instance IIC_Instances[Max_IIC_Instance];
-static uint8_t IIC_Instance_count = 0;
+static IIC_Instance iic_instances[IIC_MAX_INSTANCES];
+static uint8_t iic_instance_count;
 
-/*注册iic实例*/
-IIC_Instance *IIC_Register(IIC_Init_Config_s *conf)
+IIC_Instance *IIC_Register(const IIC_Init_Config_s *conf)
 {
-    // 检查是否达到最大实例数
-    if (IIC_Instance_count >= Max_IIC_Instance)
-    {
+    if (conf == NULL || conf->handle == NULL || conf->handle->Instance == NULL ||
+        conf->dev_addr < 0x08 || conf->dev_addr > 0x77 || conf->timeout_ms == 0 ||
+        conf->timeout_ms == HAL_MAX_DELAY || iic_instance_count >= IIC_MAX_INSTANCES) {
         return NULL;
     }
-    // 创建新的IIC实例
-    IIC_Instance *New_Instance = &IIC_Instances[IIC_Instance_count];
-    // memset清零
-    memset(New_Instance, 0, sizeof(IIC_Instance));
-    // 存储配置参数
-    New_Instance->handle = conf->handle;
-    New_Instance->dev_addr = conf->dev_addr << 1;
-    New_Instance->rx_callback = conf->callback;
-    New_Instance->id = conf->id;
-    // 将新实例添加到数组中
-    IIC_Instance_count++;
-    return New_Instance;
+
+    for (uint8_t i = 0; i < iic_instance_count; i++) {
+        if (iic_instances[i].handle == conf->handle &&
+            iic_instances[i].dev_addr == conf->dev_addr) {
+            return NULL;
+        }
+    }
+
+    /* 先完整写入候选槽位，最后提交计数，失败路径不会占用实例。 */
+    const uint8_t instance_index = iic_instance_count;
+    IIC_Instance *iic = &iic_instances[instance_index];
+    iic->handle = conf->handle;
+    iic->dev_addr = conf->dev_addr;
+    iic->timeout_ms = conf->timeout_ms;
+    iic->last_status = HAL_OK;
+    iic_instance_count = (uint8_t)(instance_index + 1);
+    return iic;
 }
 
-void IIC_Transmit(IIC_Instance *iic, uint8_t *data, uint16_t size)
+HAL_StatusTypeDef IIC_Is_Ready(IIC_Instance *iic)
 {
-    // 阻塞发送(OLED 刷新用栈 buffer,必须阻塞;DMA 会读栈垃圾)
-    HAL_I2C_Master_Transmit(iic->handle, iic->dev_addr, data, size, 100);
+    if (iic == NULL || iic->handle == NULL) {
+        return HAL_ERROR;
+    }
+    iic->last_status = HAL_I2C_IsDeviceReady(iic->handle,
+        (uint16_t)iic->dev_addr << 1, 3, iic->timeout_ms);
+    return iic->last_status;
 }
 
-void IIC_Receive(IIC_Instance *iic, uint8_t *data, uint16_t size)
+HAL_StatusTypeDef IIC_Transmit(IIC_Instance *iic, const uint8_t *data, uint16_t size)
 {
-    HAL_I2C_Master_Receive(iic->handle, iic->dev_addr, data, size, 100);
+    if (iic == NULL || iic->handle == NULL) {
+        return HAL_ERROR;
+    }
+    if (data == NULL || size == 0) {
+        iic->last_status = HAL_ERROR;
+        return iic->last_status;
+    }
+    /* HAL 的发送原型使用非 const 指针，但不会修改发送缓冲区。 */
+    iic->last_status = HAL_I2C_Master_Transmit(iic->handle,
+        (uint16_t)iic->dev_addr << 1, (uint8_t *)data, size, iic->timeout_ms);
+    return iic->last_status;
+}
+
+HAL_StatusTypeDef IIC_Receive(IIC_Instance *iic, uint8_t *data, uint16_t size)
+{
+    if (iic == NULL || iic->handle == NULL) {
+        return HAL_ERROR;
+    }
+    if (data == NULL || size == 0) {
+        iic->last_status = HAL_ERROR;
+        return iic->last_status;
+    }
+    iic->last_status = HAL_I2C_Master_Receive(iic->handle,
+        (uint16_t)iic->dev_addr << 1, data, size, iic->timeout_ms);
+    return iic->last_status;
 }

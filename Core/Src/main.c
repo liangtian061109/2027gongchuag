@@ -18,10 +18,11 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 #include "can.h"
 #include "dma.h"
 #include "i2c.h"
-#include "stm32f4xx_hal.h"
+#include "spi.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -29,10 +30,9 @@
 /* USER CODE BEGIN Includes */
 #include "Chassis.h"
 #include "Emm_V5.h"
+#include "app_init.h"
 #include "bsp_can.h"
-#include "bsp_iic.h"
 #include "bsp_uart.h"
-#include "oled.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -58,15 +58,13 @@
 
 /* USER CODE BEGIN PV */
 UART_Instance *uart1;   // 串口实例
-OLED_Instance *oled;    // OLED 屏幕实例
 CAN_Instance *can_inst; // CAN 实例(Emm_V5 模块要用)
-static uint8_t chassis_test_state = 0;
-static uint32_t chassis_test_start_tick = 0;
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -74,25 +72,11 @@ void SystemClock_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-/* OLED 屏幕的注册 */
+/* 串口的接收回调 */
 void UART_RxHandler(UART_Instance *uart, uint16_t size) {
   UART_Transmit(uart, uart->rx_buffer, size); // 把收到的发回去
 }
 
-void OLED_Setup(void) {
-  HAL_Delay(200); // 等 SSD1306 完成内部上电复位(无 RES 脚,靠延时保上电时序)
-  IIC_Init_Config_s iic_conf = {
-      .handle = &hi2c1, // 用 I2C1
-      .dev_addr = 0x3C, // OLED 7位地址,bsp内部左移成0x78
-      .callback = NULL,
-      .id = NULL,
-  };
-  OLED_Init_Config_s oled_conf = {.iic_conf = iic_conf};
-  oled = OLED_Register(&oled_conf); // 注册(内部会注册 IIC 实例)
-  OLED_Init(oled);                  // 初始化屏幕
-  OLED_Clear(oled);                 // 清屏
-  OLED_Refresh(oled);               // 刷到屏幕
-}
 /* 串口的注册 */
 void UART_Setup(void) {
   UART_Init_Config_s uart_conf = {
@@ -125,23 +109,6 @@ void CAN_Setup(void) {
       CAN_Register(&can_conf); // 注册(内部会注册 CAN 实例)
   CAN_Start(can_instance);     // 启动 CAN 接收中断
   can_inst = can_instance;     // 存到全局,Emm_V5 模块要用
-}
-
-/* 悬空低速测试：前进约 1 秒后停止，只发送每条命令一次。 */
-static void Chassis_Test_Update(void)
-{
-  if (chassis_test_state == 0)
-  {
-    Chassis_Set_Velocity(100.0f, 0.0f, 0.0f, 10, true);
-    chassis_test_start_tick = HAL_GetTick();
-    chassis_test_state = 1;
-  }
-  else if (chassis_test_state == 1 &&
-           (HAL_GetTick() - chassis_test_start_tick) >= 100)
-  {
-    Chassis_Set_Velocity(0.0f, 0.0f, 0.0f, 10, true);
-    chassis_test_state = 2;
-  }
 }
 
 /* USER CODE END 0 */
@@ -179,24 +146,35 @@ int main(void)
   MX_I2C1_Init();
   MX_CAN1_Init();
   MX_USART1_UART_Init();
+  MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
-  // OLED_Setup(); // OLED 注册
-  UART_Setup();          // UART 注册(标定期用串口输出位置)
-  CAN_Setup();           // CAN 注册
+  /* 无复位引脚的 OLED 先等上电稳定,再交给 APP 层注册和初始化。
+   * App_Init() 失败只置状态位、不阻塞启动,CAN/UART 仍要工作;
+   * 用调试器读 App_Get_Status() 可以看失败在哪一步。 */
+  HAL_Delay(200);
+  App_Init();   // OLED APP:注册 -> 初始化 -> 显示首帧
+  UART_Setup(); // UART 注册(标定期用串口输出位置)
+  CAN_Setup();  // CAN 注册
+  // Emm_V5_Init(can_inst); // 把 CAN 实例交给电机模块
 
-  HAL_Delay(1000);
-  Emm_V5_Init(can_inst); // 把 CAN 实例交给电机模块
-
-  Chassis_Init();
+  // Chassis_Init();
 
   /* USER CODE END 2 */
+
+  /* Init scheduler */
+  osKernelInitialize();  /* Call init function for freertos objects (in cmsis_os2.c) */
+  MX_FREERTOS_Init();
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1) {
     /* USER CODE END WHILE */
-    Chassis_Update();
-    Chassis_Test_Update();
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -219,13 +197,12 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 8;
-  RCC_OscInitStruct.PLL.PLLN = 168;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 25;
+  RCC_OscInitStruct.PLL.PLLN = 336;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = 4;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
@@ -251,6 +228,28 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 
 /* USER CODE END 4 */
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM4 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM4)
+  {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.

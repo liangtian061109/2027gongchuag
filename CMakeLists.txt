@@ -43,8 +43,9 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 )
 
 # Add sources to executable
-# 自动收集 Bsp/ 和 Modules/ 下所有 .c 源文件
+# 自动收集 APP/、Bsp/ 和 Modules/ 下所有 .c 源文件
 file(GLOB_RECURSE USER_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/APP/*.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/Bsp/*.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/Modules/*.c"
 )
@@ -53,8 +54,9 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 )
 
 # Add include paths
-# 自动收集 Bsp/ 和 Modules/ 下所有含 .h 的目录作为头文件搜索路径
+# 自动收集 APP/、Bsp/ 和 Modules/ 下所有含 .h 的目录作为头文件搜索路径
 file(GLOB_RECURSE USER_HEADERS
+    "${CMAKE_CURRENT_SOURCE_DIR}/APP/*.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/Bsp/*.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/Modules/*.h"
 )

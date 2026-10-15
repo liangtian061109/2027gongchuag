@@ -25,7 +25,5 @@ typedef struct
 
 } CAN_Init_Config_s;
 
-CAN_Instance *CAN_Register(CAN_Init_Config_s *conf);
-void CAN_Start(CAN_Instance *can);
-void CAN_Transmit(CAN_Instance *can, uint32_t id, uint8_t *data, uint8_t len);
+
 #endif
